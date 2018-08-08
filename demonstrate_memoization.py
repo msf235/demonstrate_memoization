@@ -4,7 +4,7 @@ randn = np.random.randn
 eig = np.linalg.eig
 
 
-# %% Define function
+# %% Define function  -- you can think of this as your ''simulator'' if you want
 def get_lam_max(n):
     np.random.seed(0)
     X = randn(n, n)
@@ -15,7 +15,6 @@ def get_lam_max(n):
 
 # %% test
 get_lam_max(1000)
-
 get_lam_max(1000)
 
 # %% Implement memoization "by hand"
@@ -23,21 +22,27 @@ cache = {}
 
 
 def get_lam_max_mem1(n):
-    if n in cache:
-        return cache[n]
+    n_str = str(n)
+    if n_str in cache:
+        return cache[n_str]
     else:
         np.random.seed(0)
         X = np.random.randn(n, n)
         lams, ev = np.linalg.eig(X)
         lams = np.sort(lams)[::-1]
         lam_max = np.real(lams[0])
-        cache[n] = lam_max
-        return cache[n]
+        cache[n_str] = lam_max
+        return cache[n_str]
 
 
 # %% test
 get_lam_max_mem1(1000)
 get_lam_max_mem1(1000)
+print(cache)
+
+get_lam_max_mem1(800)
+get_lam_max_mem1(800)
+print(cache)
 
 
 # %% Write a wrapper that implements memoization automatically
@@ -154,6 +159,7 @@ def get_lam_max_mem6(n):
     lams, ev = eig(X)
     lams = np.sort(lams)[::-1]
     return np.real(lams[0])
+
 
 # %% test
 get_lam_max_mem6(1000)
