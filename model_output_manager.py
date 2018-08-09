@@ -37,7 +37,7 @@ def __unique_to_set(a, b):
 def update_output_table(table_params, table_path='output/param_table.csv', compare_exclude=[], column_labels=None,
                         overwrite_existing=True):
     """
-    Add row to output table from param_dict.
+    Add row to output table using entries of param_dict.
 
     Args:
         table_params (dict, OrderedDict): Parameters that will be put into the table
@@ -49,9 +49,10 @@ def update_output_table(table_params, table_path='output/param_table.csv', compa
         column_labels (list): Contains the keys of params_table in the order in which they should be written in the
             output table.
         overwrite_existing (bool): Whether or not to overwrite identical table entries or make a new row and
-        increment run_id.
+        increment run_number.
 
     Returns:
+        run_id (int): Unique identifier for the run.
 
     """
     filepath = table_path.split('/')
@@ -105,6 +106,27 @@ def update_output_table(table_params, table_path='output/param_table.csv', compa
 
 def dir_for_run(table_params, run_name, table_path='output/param_table.csv', compare_exclude=[],
                 column_labels=None, overwrite_existing=True):
+    """
+    Creates a directory for the run as well as the corresponding row in the parameter table.
+
+    Args:
+        table_params (dict, OrderedDict): Parameters that will be put into the table
+        run_name (str): Name to give this run.
+        table_path (string): The filepath for the table.
+        compare_exclude (list): Parameters that will be excluded when determining if two rows represent the same
+            run. For instance, if runs are identical except for the date when the run was done, then it might be
+            reasonable to consider the runs as being identical, reflected in the variable run_number. Hence,
+            one may want to put the date parameter key in compare_exclude.
+        column_labels (list): Contains the keys of params_table in the order in which they should be written in the
+            output table.
+        overwrite_existing (bool): Whether or not to overwrite identical table entries or make a new row and
+            increment run_number.
+
+    Returns:
+        run_id (int): The unique identifier for the run
+        run_dir (str): The path to the output directory for the run
+
+    """
     run_id = update_output_table(table_params, table_path, compare_exclude, column_labels, overwrite_existing)
 
     table_dir = '/'.join(table_path.split('/')[:-1])
@@ -177,11 +199,11 @@ def save_model(table_params, table_path, model_output, params, run_name="", comp
         table_path (string): The filepath for the table.
         model_output (dict): Dictionary that holds the output data
         params (dict): Dictionary that holds the parameters
-        run_name (str): Name to give this
+        run_name (str): Name to give this run.
         columns (list): Contains the keys of params_table in the order in which they should be written in the
             output table.
         overwrite_existing (bool): Whether or not to overwrite identical table entries or make a new row and
-            increment run_id.
+            increment run_number.
         output_path (string): Filepath for output file
         data_filetype (str): Filetype for data to be written in. Currently only hdf5 is supported.
 
