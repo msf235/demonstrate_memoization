@@ -6,7 +6,6 @@ import h5py
 # %% Hyperparameters
 data_file_name = "model_data"
 
-
 # %% Helper functions
 def __unique_to_set(a, b):
     """
@@ -32,7 +31,6 @@ def __unique_to_set(a, b):
     a_unique = overlap(a, dif)
     b_unique = overlap(b, dif)
     return a_unique, b_unique
-
 
 # %% Methods for outputing data
 
@@ -77,18 +75,15 @@ def update_output_table(table_params, table_path='output/param_table.csv', compa
         for key in new_cols:
             param_df[key] = pd.Series(None, index=param_df.index)
         unique_to_param_df = __unique_to_set(param_df.columns, column_labels)[0]
-        if not unique_to_param_df:  # If param_keys is comprehensive
-            param_df = param_df[column_labels]  # Reorder colums of param_df based on param_keys
-
+        if not unique_to_param_df:  # If column_labels is comprehensive
+            param_df = param_df[column_labels]  # Reorder colums of param_df based on column_labels
         run_id = np.max(np.array(param_df.index)) + 1
         new_row = pd.DataFrame(table_params, index=[run_id])
         for e1 in unique_to_param_df:  # Add placeholders to new row for items that weren't in table_params
             new_row[e1] = np.nan
         # new_row = new_row[column_labels]
-
         compare_exclude2 = compare_exclude.copy()
         compare_exclude2.append('run_number')
-
         temp1 = param_df.drop(compare_exclude2, axis=1, errors='ignore')
         temp2 = new_row.drop(compare_exclude, axis=1, errors='ignore')
         temp_merge = pd.merge(temp1, temp2)
@@ -108,6 +103,14 @@ def update_output_table(table_params, table_path='output/param_table.csv', compa
             run_id = np.max(np.array(temp_merge.index))
     return run_id
 
+def dir_for_run(table_params, run_name, table_path='output/param_table.csv', compare_exclude=[],
+                column_labels=None, overwrite_existing=True):
+    run_id = update_output_table(table_params, table_path, compare_exclude, column_labels, overwrite_existing)
+
+    table_dir = '/'.join(table_path.split('/')[:-1])
+    run_dir = table_dir + '/' + run_name + '_' + str(run_id)
+    os.makedirs(run_dir, exist_ok=True)
+    return run_id, run_dir
 
 def write_output(output, params, table_params, output_path, overwrite=False, data_filetype='hdf5'):
     """
@@ -158,7 +161,6 @@ def write_output(output, params, table_params, output_path, overwrite=False, dat
 
         print("Done. Data written.")
 
-
 def save_model(table_params, table_path, model_output, params, run_name="", compare_exclude=[],
                columns=None, overwrite_existing=False, data_filetype='hdf5'):
     """
@@ -200,7 +202,6 @@ def save_model(table_params, table_path, model_output, params, run_name="", comp
 
     return run_id, output_path
 
-
 # %% Methods for loading data
 # Todo: Build in support for nested dictionaries / groups
 def hdf5group_to_dictionary(h5grp):
@@ -208,7 +209,6 @@ def hdf5group_to_dictionary(h5grp):
     for key in h5grp:
         d[key] = h5grp[key].value
     return d
-
 
 def run_with_id_exists(run_name, run_id, table_dir='output'):
     """
@@ -226,36 +226,75 @@ def run_with_id_exists(run_name, run_id, table_dir='output'):
     filename = table_dir + '/' + run_name + '_' + str(run_id) + '/data.hdf5'
     return os.path.exists(filename)
 
-
-def run_with_params_exists(param_dict, table_path='output/param_table.csv', compare_exclude=[], verbose=False):
+def run_with_params_exists(table_params, table_path='output/param_table.csv', compare_exclude=[]):
     """
     Given a set of parameters, check if a run matching this set exists.
 
     Args:
-        param_dict ():
-        table_dir ():
-        ret_as_dict ():
+        table_params (dict, OrderedDict): Parameters that will be put into the table
+        table_path (string): The filepath for the table.
+        compare_exclude (list): Parameters that will be excluded when determining if two rows represent the same
+            run. For instance, if runs are identical except for the date when the run was done, then it might be
+            reasonable to consider the runs as being identical, reflected in the variable run_number. Hence,
+            one may want to put the date parameter key in compare_exclude.
 
     Returns:
 
     """
+
+    # run_id = uuid.uuid4().hex
     if not os.path.exists(table_path):
         return False
-    full_df = pd.read_csv(table_path, index_col=0)
-    param_dict_df = pd.DataFrame(param_dict, index=[0])
-    temp1 = full_df.drop(['run_time'], axis=1, errors='ignore')
-    temp1 = temp1.drop(['run_number'], axis=1, errors='ignore')
-    temp1 = temp1.drop(compare_exclude, axis=1, errors='ignore')
-    temp2 = param_dict_df.drop(['run_time'], axis=1, errors='ignore')
-    temp2 = temp2.drop(compare_exclude, axis=1, errors='ignore')
-    merged_df = temp1.reset_index().merge(temp2).set_index('index')
-    if merged_df.shape[0] == 0 or set(temp1.keys()) != set(temp2.keys()):
-        if verbose:
-            print("Error: run matching parameters {} not found".format(param_dict))
-        return False
-    else:
-        return True
+    column_labels = list(table_params.keys()).copy()
+    if 'run_number' not in column_labels:
+        column_labels.append('run_number')
+    param_df = pd.read_csv(table_path, index_col=0)
+    new_cols = __unique_to_set(param_df.columns, column_labels)[1]  # param_keys that don't yet belong to param_df
+    for key in new_cols:
+        param_df[key] = pd.Series(None, index=param_df.index)
+    unique_to_param_df = __unique_to_set(param_df.columns, column_labels)[0]
+    if not unique_to_param_df:  # If column_labels is comprehensive
+        param_df = param_df[column_labels]  # Reorder colums of param_df based on column_labels
 
+    run_id = np.max(np.array(param_df.index)) + 1
+    new_row = pd.DataFrame(table_params, index=[run_id])
+    for e1 in unique_to_param_df:  # Add placeholders to new row for items that weren't in param_dict
+        new_row[e1] = np.nan
+    # new_row = new_row[column_labels]
+
+    compare_exclude2 = compare_exclude.copy()
+    compare_exclude2.append('run_number')
+
+    temp1 = param_df.drop(compare_exclude2, axis=1, errors='ignore')
+    temp2 = new_row.drop(compare_exclude, axis=1, errors='ignore')
+    temp_merge = pd.merge(temp1, temp2)
+    # This is needed to ensure proper order in some cases (if param_dict has less items than the table has
+    #   columns)
+    column_labels = list(temp_merge.columns)
+    column_labels.append('run_number')
+    run_number = temp_merge.shape[0]
+
+    if run_number == 0:
+        return False
+
+    return True
+
+    # if not os.path.exists(table_path):
+    #     return False
+    # full_df = pd.read_csv(table_path, index_col=0)
+    # param_dict_df = pd.DataFrame(param_dict, index=[0])
+    # temp1 = full_df.drop(['run_time'], axis=1, errors='ignore')
+    # temp1 = temp1.drop(['run_number'], axis=1, errors='ignore')
+    # temp1 = temp1.drop(compare_exclude, axis=1, errors='ignore')
+    # temp2 = param_dict_df.drop(['run_time'], axis=1, errors='ignore')
+    # temp2 = temp2.drop(compare_exclude, axis=1, errors='ignore')
+    # merged_df = temp1.reset_index().merge(temp2).set_index('index')
+    # if merged_df.shape[0] == 0 or set(temp1.keys()) != set(temp2.keys()):
+    #     if verbose:
+    #         print("Error: run matching parameters {} not found".format(param_dict))
+    #     return False
+    # else:
+    #     return True
 
 def load_from_id(run_name, run_id, table_path='output/param_table.csv'):  # Todo: get it working with more filetypes
     """
@@ -284,8 +323,7 @@ def load_from_id(run_name, run_id, table_path='output/param_table.csv'):  # Todo
     params = hf['parameters']
     return output, params
 
-
-def load_data(param_dict, table_path='output/param_table.csv', ret_as_dict=True):
+def load_data(param_dict, run_name, table_path='output/param_table.csv', ret_as_dict=True):
     """
 
     Args:
@@ -307,18 +345,20 @@ def load_data(param_dict, table_path='output/param_table.csv', ret_as_dict=True)
 
     # table_dir = table_dir + '/' + 'param_table.csv'
     # table_
+    table_dir = '/'.join(table_path.split('/')[:-1])
     full_df = pd.read_csv(table_path, index_col=0)
     param_dict_df = pd.DataFrame(param_dict, index=[0])
     temp1 = full_df.drop(['run_time'], axis=1, errors='ignore')
     merged_df = temp1.reset_index().merge(param_dict_df).set_index('index')
-    run_name = param_dict['run_name']
+    # run_name = param_dict['run_name']
     if merged_df.shape[0] == 1:
         output, params = load_from_id(run_name, merged_df.index[0], table_path=table_path)
         if ret_as_dict:
             output = hdf5group_to_dictionary(output)
             params = hdf5group_to_dictionary(params)
         run_id = merged_df.index[0]
-        return output, params, run_id
+        run_dir = table_dir + '/' + run_name + '_' + str(run_id)
+        return output, params, run_id, run_dir
     elif merged_df.shape[0] > 1:
         nonunique_params = {}
         for cind in merged_df.columns:
@@ -331,7 +371,6 @@ def load_data(param_dict, table_path='output/param_table.csv', ret_as_dict=True)
         raise KeyError(str1 + str2)
     elif merged_df.shape[0] == 0:
         raise KeyError("Error: run matching parameters {} not found".format(param_dict))
-
 
 # %% Untested
 
@@ -358,7 +397,6 @@ def update_table(output_dir='output'):
             param_df = param_df.append(new_row)
 
     param_df.to_csv(table_dir)
-
 
 def delete_from_id(run_name, run_id, table_path='output/param_table.csv'):
     import shutil
